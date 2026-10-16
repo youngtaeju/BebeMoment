@@ -12,13 +12,13 @@ const USER = '33333333-3333-3333-3333-333333333333'
 
 const COMPAT_KEY = `derivatives/${ASSET}/preview.mp4`
 
-async function mint(quality: string) {
+async function mint(quality: string, extra: Record<string, unknown> = {}) {
   const app = buildApp()
   const res = await app.inject({
     method: 'POST',
     url: '/media/v1/download/mint',
     headers: { authorization: `Bearer ${TOKEN}` },
-    payload: { familyId: FAMILY, assetId: ASSET, quality },
+    payload: { familyId: FAMILY, assetId: ASSET, quality, ...extra },
   })
   await app.close()
   return res
@@ -152,6 +152,23 @@ describe('POST /media/v1/download/mint — auto quality', () => {
     const payload = await verifyDownloadToken(tokenFrom((await mint('auto')).body))
     expect(payload.quality).toBe('original')
     expect(payload.mimeType).toBe('image/png')
+  })
+
+  test('preferOriginalImage 면 JPEG 의 auto 도 원본이다', async () => {
+    await createImage('image/jpeg', 'a.jpg')
+    const payload = await verifyDownloadToken(
+      tokenFrom((await mint('auto', { preferOriginalImage: true })).body),
+    )
+    expect(payload.quality).toBe('original')
+    expect(payload.mimeType).toBe('image/jpeg')
+  })
+
+  test('preferOriginalImage 여도 영상은 호환본 선택을 유지한다', async () => {
+    await createVideo({ v: 2, videoCompat: COMPAT_KEY, originalPlayable: false })
+    const payload = await verifyDownloadToken(
+      tokenFrom((await mint('auto', { preferOriginalImage: true })).body),
+    )
+    expect(payload.quality).toBe('compat')
   })
 
   test('제거된 압축 품질(hd)은 더 이상 발급하지 않는다', async () => {
