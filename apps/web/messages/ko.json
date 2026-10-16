@@ -38,6 +38,13 @@
       "ko": "한국어",
       "en": "English"
     },
+    "download": {
+      "title": "사진 저장 형식",
+      "original": "원본",
+      "gallery": "갤러리용",
+      "originalDesc": "촬영 날짜와 정보를 그대로 유지해요. 이 기기에만 적용돼요.",
+      "galleryDesc": "저장한 사진이 갤러리 맨 위에 보여요. 촬영 정보는 빠져요. 이 기기에만 적용돼요."
+    },
     "title": "설정",
     "logout": "로그아웃",
     "sections": {

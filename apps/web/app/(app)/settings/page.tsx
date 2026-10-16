@@ -1,13 +1,16 @@
 import { AppDownloadRow } from '@/components/settings/app-download-row'
+import { DownloadFormatSwitcher } from '@/components/settings/download-format-switcher'
 import { InstalledAppVersion } from '@/components/shell/installed-app-version'
 import { DisplayNameEditor } from '@/components/settings/display-name-editor'
 import { LanguageSwitcher } from '@/components/settings/language-switcher'
 import { getTranslations } from 'next-intl/server'
+import { cookies } from 'next/headers'
 import { SnsLinkSection } from '@/components/settings/sns-link-section'
 import { ThemeToggle } from '@/components/settings/theme-toggle'
 import { AppHeader } from '@/components/shell/app-header'
 import { Button } from '@/components/ui/button'
 import { isInstanceAdminUser } from '@/lib/admin'
+import { DOWNLOAD_FORMAT_COOKIE, parseDownloadFormat } from '@/lib/download-format'
 import { prismaPublic } from '@/lib/db-init'
 import { getContext } from '@/server/context'
 import { growthSettingsRows } from '@/server/growth/settings-rows'
@@ -64,6 +67,7 @@ export default async function SettingsPage() {
   if (!ctx.user) return null
   const user = ctx.user
   const role = ctx.membership?.role ?? null
+  const downloadFormat = parseDownloadFormat((await cookies()).get(DOWNLOAD_FORMAT_COOKIE)?.value)
   const env = parseEnv(process.env as Record<string, string | undefined>)
   const isAdmin =
     role === 'owner' ||
@@ -169,6 +173,15 @@ export default async function SettingsPage() {
             <LanguageSwitcher />
           </div>
         </section>
+
+        {(role === 'owner' || role === 'guardian') && (
+          <section className="space-y-2">
+            <SectionTitle>{t('download.title')}</SectionTitle>
+            <div className="overflow-hidden rounded-2xl border border-base-200/70 bg-base-0 px-4 py-3.5 shadow-card dark:border-base-800/70 dark:bg-base-900">
+              <DownloadFormatSwitcher initial={downloadFormat} />
+            </div>
+          </section>
+        )}
 
         <section className="space-y-2">
           <SectionTitle>{t('sections.display')}</SectionTitle>

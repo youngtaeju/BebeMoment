@@ -32,4 +32,13 @@ describe('prefersOriginalImage', () => {
     expect(prefersOriginalImage('family')).toBe(false)
     expect(prefersOriginalImage(undefined)).toBe(false)
   })
+
+  test('a guardian device set to gallery keeps the gallery copy', () => {
+    expect(prefersOriginalImage('guardian', 'gallery')).toBe(false)
+    expect(prefersOriginalImage('guardian', 'original')).toBe(true)
+  })
+
+  test('the device setting never gives family members originals', () => {
+    expect(prefersOriginalImage('family', 'original')).toBe(false)
+  })
 })
