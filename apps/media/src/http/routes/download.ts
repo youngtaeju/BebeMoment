@@ -7,11 +7,15 @@ import { getStorage } from '@/lib/storage'
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { MediaHttpError } from '../middleware/error-handler'
 
-// 요청 시점 재인코드(갤러리용 JPEG)는 동시에 2개까지. 넘치면 503 retriable — 워커의
-// 파생물 생성과 CPU 를 다투다 NAS 전체가 느려지는 걸 막는다.
+// 요청 시점 재인코드(갤러리용 JPEG)는 동시에 2개까지 — 워커의 파생물 생성과 CPU 를
+// 다투다 NAS 전체가 느려지는 걸 막는다.
 // export 는 테스트 seam 이다: 슬롯을 직접 잡아야 거절 경로를 결정적으로 확인할 수 있다
 // (실제 재인코드 3개를 경주시키면 부하가 높은 기계에서 타임아웃으로 깨진다).
 export const LIVE_SLOTS = new Semaphore(2)
+// 슬롯이 차면 503 대신 대기. `<a download>`·DownloadManager 는 503 을 재시도하지 않아
+// 일괄 저장이 첫 2장 뒤로 전부 실패하던 문제. 대기열 상한 초과만 503.
+// 상한 50: 한 장 수 초 기준 최장 대기 약 2분, web 프록시 fetch 헤더 타임아웃(300초) 이내.
+export const LIVE_QUEUE_LIMIT = 50
 
 function busy(): MediaHttpError {
   return new MediaHttpError({
@@ -23,9 +27,8 @@ function busy(): MediaHttpError {
 }
 
 function withLiveSlot<T>(fn: () => Promise<T>): Promise<T> {
-  const running = LIVE_SLOTS.tryRun(fn)
-  if (!running) throw busy()
-  return running
+  if (LIVE_SLOTS.pending >= LIVE_QUEUE_LIMIT) throw busy()
+  return LIVE_SLOTS.run(fn)
 }
 
 function notFound(): MediaHttpError {
@@ -105,8 +108,10 @@ async function serveGalleryJpeg(
   if (await redirectIfS3(reply, payload.originalKey)) return reply
   const storage = getStorage()
   if (!(await storage.exists(payload.originalKey))) throw notFound()
-  const buf = await streamToBuffer(await storage.read(payload.originalKey))
-  const out = await withLiveSlot(() => stripJpegMetadata(buf))
+  // 원본 읽기도 슬롯 안에서 — 대기 중인 요청이 원본 버퍼를 쥐고 있지 않게.
+  const out = await withLiveSlot(async () =>
+    stripJpegMetadata(await streamToBuffer(await storage.read(payload.originalKey))),
+  )
   reply.header('content-type', 'image/jpeg')
   reply.header('content-length', String(out.length))
   return reply.status(200).send(out)
