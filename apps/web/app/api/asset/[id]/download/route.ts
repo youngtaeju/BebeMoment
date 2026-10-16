@@ -4,7 +4,7 @@ import { getMediaClient } from '@/lib/media-client'
 import { resolveContext } from '@/server/context'
 import { errorJson, errorJsonKey } from '@/lib/error-response'
 import { isAssetHiddenFromViewer } from '@/server/story/secret-assets'
-import { parseDownloadQuality } from './quality'
+import { parseDownloadQuality, prefersOriginalImage } from './quality'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session } = await getAuth()
@@ -37,6 +37,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       familyId: ctx.family.id,
       assetId: id,
       quality,
+      preferOriginalImage: prefersOriginalImage(ctx.membership?.role),
     })
     // 미디어 URL 이 절대주소이면 컨테이너 내부에서도 외부 호스트네임으로 도는 셈이라
     // 비효율적 — `/media/...` 부분만 잘라 컨테이너 내부 미디어 서비스로 직접 호출.

@@ -11,3 +11,8 @@ export type DownloadQuality = z.infer<typeof QUALITY>
 export function parseDownloadQuality(raw: string | null): DownloadQuality {
   return QUALITY.parse(raw ?? 'auto')
 }
+
+// 보호자(owner·guardian)는 auto 에서도 JPEG 원본(촬영 정보 유지). 가족은 갤러리용 유지.
+export function prefersOriginalImage(role: string | undefined): boolean {
+  return role === 'owner' || role === 'guardian'
+}
