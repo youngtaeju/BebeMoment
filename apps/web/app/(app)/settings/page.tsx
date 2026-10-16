@@ -222,7 +222,7 @@ export default async function SettingsPage() {
 
         <div className="flex items-center justify-center gap-2 pt-2">
           <a
-            href="https://github.com/svrforum/BebeMoment"
+            href="https://github.com/youngtaeju/BebeMoment"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-full border border-base-200 px-3.5 py-2 text-[13px] font-medium text-base-600 transition-colors hover:bg-base-100 active:scale-95 dark:border-base-800 dark:text-base-300 dark:hover:bg-base-800"
