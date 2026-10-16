@@ -37,10 +37,19 @@ async function exifTakenAt(data: Buffer): Promise<Date | undefined> {
   return exifWallClock(dates?.DateTimeOriginal) ?? exifWallClock(dates?.CreateDate)
 }
 
+// 깨진 EXIF(오프셋 오류·0 채움)는 NUL 섞인 문자열을 남김. jsonb·text 컬럼이 \u0000 을
+// 거부해 자산 처리 전체가 실패하므로 그런 값은 제외. exifr 기본 출력(mergeOutput)은 평면 객체.
+function dropNulStrings(parsed: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value === 'string' && value.includes('\0')) delete parsed[key]
+  }
+}
+
 export async function parseExif(data: Buffer): Promise<ExifResult> {
   try {
     const parsed = (await exifr.parse(data, FULL_OPTIONS)) as Record<string, unknown> | undefined
     if (!parsed) return {}
+    dropNulStrings(parsed)
 
     const result: ExifResult = { raw: parsed }
     const takenAt = await exifTakenAt(data)
