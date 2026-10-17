@@ -32,6 +32,40 @@ function tiffWithDates(dates: { DateTimeOriginal?: string; CreateDate?: string }
   return b
 }
 
+// IFD0 ASCII 태그만 담은 최소 JPEG(SOI + APP1 Exif + EOI). 값은 오프셋 저장이라 5바이트 이상(NUL 포함)만.
+function jpegWithAsciiTags(tags: Array<[number, string]>): Buffer {
+  const entriesEnd = 8 + 2 + tags.length * 12 + 4
+  const values = tags.map(([, v]) => Buffer.from(`${v}\0`, 'latin1'))
+  const tiff = Buffer.alloc(entriesEnd + values.reduce((n, v) => n + v.length, 0))
+  tiff.write('II', 0, 'latin1')
+  tiff.writeUInt16LE(42, 2)
+  tiff.writeUInt32LE(8, 4)
+  tiff.writeUInt16LE(tags.length, 8)
+  let valueOffset = entriesEnd
+  tags.forEach(([tag], i) => {
+    const entry = 10 + i * 12
+    const value = values[i] as Buffer
+    tiff.writeUInt16LE(tag, entry)
+    tiff.writeUInt16LE(2, entry + 2)
+    tiff.writeUInt32LE(value.length, entry + 4)
+    tiff.writeUInt32LE(valueOffset, entry + 8)
+    value.copy(tiff, valueOffset)
+    valueOffset += value.length
+  })
+  const payload = Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff])
+  const length = Buffer.alloc(2)
+  length.writeUInt16BE(payload.length + 2)
+  return Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff, 0xe1]),
+    length,
+    payload,
+    Buffer.from([0xff, 0xd9]),
+  ])
+}
+
+const MAKE = 0x010f
+const MODEL = 0x0110
+
 describe('parseExif', () => {
   it('returns empty object for unparseable buffer', async () => {
     const result = await parseExif(Buffer.from('not an image'))
@@ -41,6 +75,19 @@ describe('parseExif', () => {
   it('returns empty object for empty buffer', async () => {
     const result = await parseExif(Buffer.alloc(0))
     expect(result).toEqual({})
+  })
+
+  it('drops string values that carry NUL characters', async () => {
+    // 깨진 EXIF(오프셋 오류·0 채움) 재현. jsonb 는 \u0000 을 거부.
+    const result = await parseExif(
+      jpegWithAsciiTags([
+        [MAKE, 'sam\0sung'],
+        [MODEL, 'Galaxy S25+'],
+      ]),
+    )
+    expect(JSON.stringify(result.raw)).not.toContain('\\u0000')
+    expect(result.cameraMake).toBeUndefined()
+    expect(result.cameraModel).toBe('Galaxy S25+')
   })
 })
 
