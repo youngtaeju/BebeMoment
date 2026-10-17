@@ -70,7 +70,7 @@ export function ViewerActionBar({
         <a
           href={`/api/asset/${assetId}/download?q=auto`}
           download
-          aria-label={t('actions.downloadOriginal')}
+          aria-label={t('actions.download')}
           onClick={() => toast({ title: t('actions.savingPhoto') })}
           className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-white transition-transform ease-ios active:scale-90"
         >

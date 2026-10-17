@@ -29,7 +29,7 @@ function deriveFilename(
 export const downloadMintRoute: FastifyPluginAsync = async (app) => {
   app.post('/media/v1/download/mint', async (req, reply) => {
     assertServiceToken(req.headers.authorization)
-    const { familyId, assetId, quality } = mintDownloadRequest.parse(req.body)
+    const { familyId, assetId, quality, preferOriginalImage } = mintDownloadRequest.parse(req.body)
 
     const asset = await prisma.asset.findFirst({
       where: { id: assetId, familyId, deletedAt: null },
@@ -63,7 +63,13 @@ export const downloadMintRoute: FastifyPluginAsync = async (app) => {
     }
     // JPEG 사진의 기본 저장은 갤러리용(회전 굽기·EXIF 제거 — 저장한 사진이 갤러리 맨 위에
     // 보이게). 명시적 original 만 바이트 그대로.
-    if (quality === 'auto' && kind === 'image' && asset.mimeType.toLowerCase() === 'image/jpeg') {
+    // preferOriginalImage 요청은 예외. 갤러리용 대신 원본.
+    if (
+      quality === 'auto' &&
+      !preferOriginalImage &&
+      kind === 'image' &&
+      asset.mimeType.toLowerCase() === 'image/jpeg'
+    ) {
       effective = 'gallery'
     }
 

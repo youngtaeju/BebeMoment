@@ -1,10 +1,12 @@
 import { getAuth } from '@/lib/auth'
+import { DOWNLOAD_FORMAT_COOKIE } from '@/lib/download-format'
 import { prismaPublic } from '@/lib/db-init'
 import { getMediaClient } from '@/lib/media-client'
 import { resolveContext } from '@/server/context'
 import { errorJson, errorJsonKey } from '@/lib/error-response'
 import { isAssetHiddenFromViewer } from '@/server/story/secret-assets'
-import { parseDownloadQuality } from './quality'
+import { cookies } from 'next/headers'
+import { parseDownloadQuality, prefersOriginalImage } from './quality'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { session } = await getAuth()
@@ -37,6 +39,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       familyId: ctx.family.id,
       assetId: id,
       quality,
+      preferOriginalImage: prefersOriginalImage(
+        ctx.membership?.role,
+        (await cookies()).get(DOWNLOAD_FORMAT_COOKIE)?.value,
+      ),
     })
     // 미디어 URL 이 절대주소이면 컨테이너 내부에서도 외부 호스트네임으로 도는 셈이라
     // 비효율적 — `/media/...` 부분만 잘라 컨테이너 내부 미디어 서비스로 직접 호출.

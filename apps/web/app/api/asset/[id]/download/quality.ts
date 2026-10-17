@@ -1,3 +1,4 @@
+import { parseDownloadFormat } from '@/lib/download-format'
 import { z } from 'zod'
 
 // 저장 품질은 둘뿐이다: auto(= 폰에서 열리는 파일, JPEG 사진은 갤러리용 재인코드)와
@@ -10,4 +11,11 @@ export type DownloadQuality = z.infer<typeof QUALITY>
 
 export function parseDownloadQuality(raw: string | null): DownloadQuality {
   return QUALITY.parse(raw ?? 'auto')
+}
+
+// 보호자(owner·guardian)는 auto 에서도 JPEG 원본(촬영 정보 유지). 가족은 갤러리용 유지.
+// 보호자도 기기 설정(download_format 쿠키)이 gallery 면 갤러리용.
+export function prefersOriginalImage(role: string | undefined, format?: string): boolean {
+  if (role !== 'owner' && role !== 'guardian') return false
+  return parseDownloadFormat(format) === 'original'
 }

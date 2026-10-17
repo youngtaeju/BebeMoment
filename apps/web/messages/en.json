@@ -38,6 +38,13 @@
       "ko": "한국어",
       "en": "English"
     },
+    "download": {
+      "title": "Photo save format",
+      "original": "Original",
+      "gallery": "Gallery",
+      "originalDesc": "Keeps the date taken and photo details. Applies to this device only.",
+      "galleryDesc": "Saved photos show up at the top of your gallery, without photo details. Applies to this device only."
+    },
     "title": "Settings",
     "logout": "Sign out",
     "sections": {

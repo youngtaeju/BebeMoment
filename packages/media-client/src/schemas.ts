@@ -139,6 +139,8 @@ export const mintDownloadRequest = z.object({
   // auto = 기본 저장(폰에서 열리는 파일), original = 저장된 바이트 그대로. 압축
   // 다운로드(hd/sd)는 제거됐다 — web 라우트가 옛 요청을 auto 로 접는다.
   quality: z.enum(['auto', 'original']),
+  // auto 에서도 JPEG 를 갤러리용 재인코드 대신 원본으로. 영상 호환본 선택은 그대로.
+  preferOriginalImage: z.boolean().optional(),
 })
 export type MintDownloadRequest = z.infer<typeof mintDownloadRequest>
 
