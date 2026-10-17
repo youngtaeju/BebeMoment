@@ -4,9 +4,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { type SignDownloadArgs, signDownloadToken } from '@/lib/jwt'
 import { buildApp } from '@/server'
-import { LIVE_SLOTS } from './download'
+import { LIVE_QUEUE_LIMIT, LIVE_SLOTS } from './download'
 import sharp from 'sharp'
-import { beforeAll, describe, expect, test } from 'vitest'
+import { beforeAll, describe, expect, test, vi } from 'vitest'
 
 const FAMILY = 'fam'
 const ASSET = 'asset'
@@ -197,24 +197,40 @@ describe('GET /media/v1/download/:signed', () => {
     await app.close()
   })
 
-  test('a gallery re-encode is refused with a retriable 503 while both slots are taken', async () => {
+  test('a gallery re-encode waits for a free slot instead of failing the save', async () => {
     const app = buildApp()
     const token = await tokenFor({ assetId: 'big', originalKey: BIG_KEY, quality: 'gallery' })
-    const url = `/media/v1/download/${token}`
 
     // 슬롯을 직접 채운다 — 실제 재인코드를 경주시키면 결과가 기계 속도에 좌우된다.
     const held = [LIVE_SLOTS.tryAcquire(), LIVE_SLOTS.tryAcquire()]
     expect(held.every(Boolean)).toBe(true)
+    const waiting = app.inject({ method: 'GET', url: `/media/v1/download/${token}` })
+    await vi.waitFor(() => expect(LIVE_SLOTS.pending).toBe(1))
+    for (const release of held) release?.()
+
+    expect((await waiting).statusCode).toBe(200)
+    await app.close()
+  })
+
+  test('a gallery re-encode is refused with a retriable 503 once the wait queue is full', async () => {
+    const app = buildApp()
+    const token = await tokenFor({ assetId: 'big', originalKey: BIG_KEY, quality: 'gallery' })
+
+    const held = [LIVE_SLOTS.tryAcquire(), LIVE_SLOTS.tryAcquire()]
+    let open!: () => void
+    const gate = new Promise<void>((r) => {
+      open = r
+    })
+    const queued = Array.from({ length: LIVE_QUEUE_LIMIT }, () => LIVE_SLOTS.run(() => gate))
     try {
-      const refused = await app.inject({ method: 'GET', url })
+      const refused = await app.inject({ method: 'GET', url: `/media/v1/download/${token}` })
       expect(refused.statusCode).toBe(503)
       expect(JSON.parse(refused.body).error.retriable).toBe(true)
     } finally {
+      open()
       for (const release of held) release?.()
+      await Promise.all(queued)
     }
-
-    const after = await app.inject({ method: 'GET', url })
-    expect(after.statusCode).toBe(200)
     await app.close()
   })
 })
